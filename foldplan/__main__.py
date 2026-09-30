@@ -11,12 +11,15 @@ def main(argv=None):
     parser.add_argument('--initial-train-size', required=True, type=int)
     parser.add_argument('--test-size', required=True, type=int)
     parser.add_argument('--gap', default=0, type=int, help='Rows excluded immediately before each test block')
+    parser.add_argument('--max-train-size', type=int,
+                        help='Keep only this many of the most recent eligible training rows')
     parser.add_argument('--keep-partial', action='store_true', help='Include a final shorter test block')
     args = parser.parse_args(argv)
     try:
         samples = read_samples(args.file)
         folds = make_folds(samples, initial_train_size=args.initial_train_size,
-                           test_size=args.test_size, gap=args.gap, keep_partial=args.keep_partial)
+                           test_size=args.test_size, gap=args.gap, keep_partial=args.keep_partial,
+                           max_train_size=args.max_train_size)
     except (ValueError, OSError, UnicodeError) as exc:
         print(f'Could not plan folds: {exc}', file=sys.stderr)
         return 2

@@ -47,6 +47,14 @@ class FoldTests(unittest.TestCase):
         self.assertEqual(len(make_folds(samples(9), **args)), 2)
         self.assertEqual(make_folds(samples(9), keep_partial=True, **args)[-1]['test_indices'], [8])
 
+    def test_rolling_window_keeps_most_recent_eligible_rows(self):
+        data = samples(10)
+        data[4] = Sample(data[4].date, date(2026, 2, 1))
+        fold = make_folds(data, initial_train_size=6, test_size=2, max_train_size=3)[0]
+        self.assertEqual(fold['train_indices'], [2, 3, 5])
+        self.assertEqual(fold['window_indices'], [0, 1])
+        self.assertEqual(fold['purged_indices'], [4])
+
     def test_insufficient_history_or_no_known_labels_fails(self):
         for data, initial in [(samples(3), 4), (samples(5), 4), (samples(10, 100), 4)]:
             with self.subTest(initial=initial, length=len(data)):
@@ -56,7 +64,8 @@ class FoldTests(unittest.TestCase):
     def test_invalid_parameters(self):
         for field, value in [('initial_train_size', 0), ('test_size', -1),
                              ('gap', -1), ('test_size', 1.5), ('gap', True),
-                             ('keep_partial', 'yes')]:
+                             ('keep_partial', 'yes'), ('max_train_size', 0),
+                             ('max_train_size', True)]:
             args = dict(initial_train_size=4, test_size=2)
             args[field] = value
             with self.subTest(field=field, value=value), self.assertRaises(ValueError):
@@ -77,9 +86,9 @@ class FoldTests(unittest.TestCase):
                 folds = make_folds(data, initial_train_size=5, test_size=4, gap=gap, keep_partial=True)
                 tested = []
                 for fold in folds:
-                    train, purge, omitted, test = [fold[k] for k in
-                        ['train_indices', 'purged_indices', 'gap_indices', 'test_indices']]
-                    combined = train + purge + omitted + test
+                    train, purge, omitted, window, test = [fold[k] for k in
+                        ['train_indices', 'purged_indices', 'gap_indices', 'window_indices', 'test_indices']]
+                    combined = train + purge + omitted + window + test
                     self.assertEqual(sorted(combined), list(range(test[-1] + 1)))
                     self.assertEqual(len(combined), len(set(combined)))
                     self.assertTrue(all(data[i].available_on < data[test[0]].date for i in train))
