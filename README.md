@@ -25,6 +25,7 @@ python -m venv .venv
 source .venv/bin/activate
 python -m pip install .
 foldplan examples/labels.csv --initial-train-size 4 --test-size 2 --gap 1
+foldplan examples/labels.csv --initial-train-size 4 --test-size 2 --max-train-size 3
 ```
 
 On Windows, activate with `.venv\Scripts\activate` instead. Installation may
@@ -54,6 +55,8 @@ Availability cannot precede the sample date, but can extend beyond the dataset.
 - Start the first test block after `initial_train_size + gap` rows.
 - Advance by `test_size` rows for each new test block. Test blocks do not overlap.
 - Expand candidate training history from the start of the dataset.
+- If `--max-train-size` is set, keep only that many of the most recent eligible
+  training rows. This creates a rolling window after unavailable labels are purged.
 - Exclude the `gap` rows immediately before each test block.
 - From remaining candidates, exclude labels whose availability date is on or
   after the first test date. Same-day availability is conservatively excluded.
@@ -72,7 +75,8 @@ indices `[0, 1]`, purged indices `[2, 3]`, and test indices `[4, 5]`.
 The CLI prints JSON with `schema_version`, `sample_count`, `index_base`, and
 `folds`. Each fold includes its test date range and `train_indices`,
 `test_indices`, `gap_indices`, and `purged_indices`. All indices are zero-based
-data-row positions, excluding the CSV header. No automatic sorting occurs.
+data-row positions, excluding the CSV header. `window_indices` lists older,
+otherwise eligible rows excluded by `--max-train-size`. No automatic sorting occurs.
 Exit code 0 means success; 2 means invalid arguments, input, or file access.
 Errors go to stderr and no partial JSON is emitted.
 

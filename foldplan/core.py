@@ -61,7 +61,8 @@ def validate_samples(samples):
 
 
 def make_folds(samples, *, initial_train_size: int, test_size: int,
-               gap: int = 0, keep_partial: bool = False) -> list[dict]:
+               gap: int = 0, keep_partial: bool = False,
+               max_train_size: int | None = None) -> list[dict]:
     """Return expanding-window splits with zero-based indices into samples.
 
     Labels must be available strictly before the first test date. The optional
@@ -73,6 +74,8 @@ def make_folds(samples, *, initial_train_size: int, test_size: int,
                                  ('test_size', test_size, 1), ('gap', gap, 0)]:
         if type(value) is not int or value < minimum:
             raise ValueError(f'{name} must be an integer of at least {minimum}.')
+    if max_train_size is not None and (type(max_train_size) is not int or max_train_size < 1):
+        raise ValueError('max_train_size must be None or an integer of at least 1.')
     if type(keep_partial) is not bool:
         raise ValueError('keep_partial must be a boolean.')
     folds = []
@@ -82,8 +85,13 @@ def make_folds(samples, *, initial_train_size: int, test_size: int,
             break
         cutoff = samples[start].date
         candidates = range(start - gap)
-        train = [i for i in candidates if samples[i].available_on < cutoff]
+        eligible = [i for i in candidates if samples[i].available_on < cutoff]
         purged = [i for i in candidates if samples[i].available_on >= cutoff]
+        if max_train_size is None:
+            train, window = eligible, []
+        else:
+            train = eligible[-max_train_size:]
+            window = eligible[:-max_train_size]
         if not train:
             raise ValueError(f'No training labels are available before {cutoff.isoformat()}.')
         folds.append({
@@ -94,6 +102,7 @@ def make_folds(samples, *, initial_train_size: int, test_size: int,
             'test_indices': list(range(start, stop)),
             'gap_indices': list(range(start - gap, start)),
             'purged_indices': purged,
+            'window_indices': window,
         })
     if not folds:
         raise ValueError('Not enough samples for a test fold; reduce sizes or use keep_partial.')
